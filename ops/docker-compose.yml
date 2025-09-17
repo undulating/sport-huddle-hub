@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: nflpred-db
+    environment:
+      POSTGRES_USER: nflpred
+      POSTGRES_PASSWORD: nflpred123
+      POSTGRES_DB: nflpred
+      TZ: America/New_York
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nflpred"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: nflpred-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ..
+      dockerfile: ops/api.Dockerfile
+    container_name: nflpred-api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://nflpred:nflpred123@db:5432/nflpred
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: dev-secret-key-change-in-production
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: admin123
+      PROVIDER: mock
+      TZ: America/New_York
+      PYTHONUNBUFFERED: 1
+      ENVIRONMENT: development
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ../api:/app/api
+    command: uvicorn api.app:app --host 0.0.0.0 --port 8000 --reload
+
+  worker:
+    build:
+      context: ..
+      dockerfile: ops/api.Dockerfile
+    container_name: nflpred-worker
+    environment:
+      DATABASE_URL: postgresql://nflpred:nflpred123@db:5432/nflpred
+      REDIS_URL: redis://redis:6379/0
+      PROVIDER: mock
+      TZ: America/New_York
+      PYTHONUNBUFFERED: 1
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ../api:/app/api
+    command: python -m api.jobs.worker
+
+volumes:
+  postgres_data:
+  redis_data:

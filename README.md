@@ -1,73 +1,95 @@
-# Welcome to your Lovable project
+# NFL Prediction System
 
-## Project info
+A comprehensive NFL game prediction system with real-time odds tracking, machine learning models, and automated predictions.
 
-**URL**: https://lovable.dev/projects/9f7160ff-c9a8-4298-806d-560f7276bb67
+## Project Structure
 
-## How can I edit this code?
-
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/9f7160ff-c9a8-4298-806d-560f7276bb67) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```
+/
+├── api/                 # FastAPI backend
+│   ├── adapters/       # External data providers
+│   ├── core/           # Core business logic
+│   ├── jobs/           # Background jobs (RQ)
+│   ├── models/         # ML models (Elo, Skellam)
+│   ├── routes/         # API endpoints
+│   ├── schemas/        # Pydantic models
+│   ├── storage/        # Database layer
+│   └── tests/          # Test suite
+├── web/                # React frontend (Vite + Tailwind)
+├── ops/                # Docker & deployment configs
+└── fixtures/           # Mock data for development
 ```
 
-**Edit a file directly in GitHub**
+## Quick Start
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Prerequisites
+- Python 3.11+
+- Node.js 18+
+- Docker Desktop
+- Poetry (Python package manager)
 
-**Use GitHub Codespaces**
+### Development Setup
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+1. **Clone and install dependencies:**
+```bash
+# Backend
+poetry install
 
-## What technologies are used for this project?
+# Frontend
+cd web && npm install
+```
 
-This project is built with:
+2. **Start infrastructure:**
+```bash
+cd ops
+docker compose up -d db redis
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+3. **Run migrations:**
+```bash
+docker compose exec api alembic upgrade head
+```
 
-## How can I deploy this project?
+4. **Start services:**
+```bash
+# Terminal 1: API
+docker compose up api
 
-Simply open [Lovable](https://lovable.dev/projects/9f7160ff-c9a8-4298-806d-560f7276bb67) and click on Share -> Publish.
+# Terminal 2: Worker
+docker compose up worker
 
-## Can I connect a custom domain to my Lovable project?
+# Terminal 3: Frontend
+cd web && npm run dev
+```
 
-Yes, you can!
+5. **Access the application:**
+- Frontend: http://localhost:5173
+- API: http://localhost:8000
+- API Docs: http://localhost:8000/docs
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Environment Variables
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Copy `.env.example` to `.env` and configure:
+
+```bash
+DATABASE_URL=postgresql://nflpred:nflpred123@localhost:5432/nflpred
+REDIS_URL=redis://localhost:6379
+SECRET_KEY=your-secret-key-here
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=secure-password
+PROVIDER=mock  # or 'odds_api', 'sportsdataio'
+```
+
+## Testing
+
+```bash
+# Backend tests
+pytest api/tests/
+
+# Frontend tests
+cd web && npm test
+```
+
+## License
+
+MIT
