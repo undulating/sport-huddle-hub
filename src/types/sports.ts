@@ -1,3 +1,11 @@
+export interface Player {
+  id: string;
+  name: string;
+  position: string;
+  number: number;
+  formRating?: number; // 1-10 scale, will be filled by backend
+}
+
 export interface Team {
   id: string;
   name: string;
@@ -8,6 +16,9 @@ export interface Team {
   secondaryColor: string;
   conference?: string;
   division?: string;
+  wins: number;
+  losses: number;
+  roster: Player[];
 }
 
 export interface Game {

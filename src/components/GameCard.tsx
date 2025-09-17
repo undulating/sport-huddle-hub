@@ -2,6 +2,7 @@ import { Game } from '@/types/sports';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { WinPercentageBar } from './WinPercentageBar';
+import { TeamFormPopover } from './TeamFormPopover';
 import { cn } from '@/lib/utils';
 
 interface GameCardProps {
@@ -33,9 +34,15 @@ export const GameCard = ({ game, className }: GameCardProps) => {
     )}>
       <CardHeader className="pb-3">
         <div className="flex justify-between items-center">
-          <Badge variant="outline" className="text-xs font-medium">
-            Week {game.week}
-          </Badge>
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className="text-xs font-medium">
+              Week {game.week}
+            </Badge>
+            <TeamFormPopover 
+              homeTeam={game.homeTeam}
+              awayTeam={game.awayTeam}
+            />
+          </div>
           <div className="text-right text-xs text-muted-foreground">
             <div>{formatGameDate(game.gameDate)}</div>
             <div className="font-medium">{formatGameTime(game.gameDate)}</div>
@@ -58,8 +65,11 @@ export const GameCard = ({ game, className }: GameCardProps) => {
                 <div className="font-semibold text-foreground">
                   {game.awayTeam.city} {game.awayTeam.name}
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  @ {game.homeTeam.city}
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>@ {game.homeTeam.city}</span>
+                  <Badge variant="outline" className="text-xs px-1.5 py-0.5">
+                    {game.awayTeam.wins}-{game.awayTeam.losses}
+                  </Badge>
                 </div>
               </div>
             </div>
@@ -86,8 +96,11 @@ export const GameCard = ({ game, className }: GameCardProps) => {
                 <div className="font-semibold text-foreground">
                   {game.homeTeam.city} {game.homeTeam.name}
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  Home
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>Home</span>
+                  <Badge variant="outline" className="text-xs px-1.5 py-0.5">
+                    {game.homeTeam.wins}-{game.homeTeam.losses}
+                  </Badge>
                 </div>
               </div>
             </div>
