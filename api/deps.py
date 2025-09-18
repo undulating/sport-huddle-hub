@@ -4,7 +4,10 @@ from uuid import uuid4
 from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from passlib.context import CryptContext
+from sqlalchemy.orm import Session
+
 from api.config import settings
+from api.storage.db import get_db as get_database_session
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBasic()
@@ -15,10 +18,9 @@ def get_request_id(x_request_id: str | None = Header(None)) -> str:
     return x_request_id or str(uuid4())
 
 
-def get_db_session() -> Generator:
-    """Database session dependency - to be implemented."""
-    # TODO: Implement in Step 1.2
-    yield None
+def get_db() -> Generator[Session, None, None]:
+    """Database session dependency."""
+    yield from get_database_session()
 
 
 def verify_admin(credentials: HTTPBasicCredentials = Depends(security)) -> str:

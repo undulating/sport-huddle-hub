@@ -2,8 +2,11 @@
 from datetime import datetime
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, status
+from sqlalchemy.orm import Session
+
 from api.config import settings
-from api.deps import get_request_id
+from api.deps import get_request_id, get_db
+from api.storage.db import check_db_connection
 from api.logging import get_logger
 
 logger = get_logger(__name__)
@@ -24,19 +27,5 @@ async def ping(request_id: str = Depends(get_request_id)) -> Dict[str, Any]:
 
 
 @router.get("/health")
-async def health(request_id: str = Depends(get_request_id)) -> Dict[str, Any]:
-    """Detailed health check."""
-    health_status = {
-        "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat(),
-        "version": "0.1.0",
-        "environment": settings.ENVIRONMENT,
-        "services": {
-            "api": "healthy",
-            "database": "pending",
-            "redis": "pending",
-        },
-    }
-    
-    logger.info(f"Health check completed - {health_status['status']}")
-    return health_status
+async def health(
+    request_id: str = Depends(get_request_i
