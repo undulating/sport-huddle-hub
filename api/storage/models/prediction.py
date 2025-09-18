@@ -56,7 +56,7 @@ class Prediction(Base):
     meta_data = Column(JSON)
     
     # Relationships
-    game = relationship("Game", back_populates="predictions")
+    game = relationship("Game")
     model_version = relationship("ModelVersion", back_populates="predictions")
     model_run = relationship("ModelRun", back_populates="predictions")
     evaluation = relationship("Evaluation", back_populates="prediction", uselist=False)

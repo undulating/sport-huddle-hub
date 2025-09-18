@@ -1,20 +1,20 @@
-import sys
-sys.path.append('/app')
+import pathlib
 
-# Read current app.py
-with open('/app/api/app.py', 'r') as f:
-    content = f.read()
+APP_PY = pathlib.Path(__file__).with_name("app.py")
+text = APP_PY.read_text()
 
-# Add import for ingest router
-import_line = "from api.routes import health, ingest"
-content = content.replace("from api.routes import health", import_line)
+# 1) add import for the new router
+text = text.replace(
+    "from api.routes import health",
+    "from api.routes import health, ingest"
+)
 
-# Add router inclusion
-router_line = 'app.include_router(health.router, prefix="/api", tags=["health"])\napp.include_router(ingest.router, prefix="/api/ingest", tags=["ingest"])'
-content = content.replace('app.include_router(health.router, prefix="/api", tags=["health"])', router_line)
+# 2) include the new router
+text = text.replace(
+    "app.include_router(health.router, prefix='/api', tags=['health'])",
+    "app.include_router(health.router, prefix='/api', tags=['health'])\n"
+    "app.include_router(ingest.router, prefix='/api/ingest', tags=['ingest'])"
+)
 
-# Write back
-with open('/app/api/app.py', 'w') as f:
-    f.write(content)
-
-print("✅ App.py updated with ingest routes")
+APP_PY.write_text(text)
+print("✅ updated", APP_PY)

@@ -74,4 +74,3 @@ class Game(Base):
     away_team = relationship("Team", foreign_keys=[away_team_id], back_populates="away_games")
     odds_records = relationship("Odds", back_populates="game", cascade="all, delete-orphan")
     weather_records = relationship("Weather", back_populates="game", cascade="all, delete-orphan")
-    predictions = relationship("Prediction", back_populates="game", cascade="all, delete-orphan")

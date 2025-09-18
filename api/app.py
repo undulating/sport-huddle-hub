@@ -69,3 +69,7 @@ app.include_router(ingest.router, prefix="/api/ingest", tags=["ingest"])
 @app.get("/")
 async def root():
     return {"message": "NFL Prediction API", "documentation": "/docs"}
+
+from api.routes import predictions
+app.include_router(predictions.router, prefix="/api/predictions", tags=["predictions"])
+

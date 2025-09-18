@@ -89,3 +89,7 @@ class WeatherDTO(BaseModel):
     condition: Optional[str] = None
     indoor: bool = False
     provider: str = "mock"
+
+# Add missing fields to GameDTO if not present
+    home_spread: Optional[float] = None
+    total_over_under: Optional[float] = None
