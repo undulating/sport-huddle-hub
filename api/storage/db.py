@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from typing import Generator
 
 from api.config import settings
-from api.logging import get_logger
+from api.app_logging import get_logger
 
 logger = get_logger(__name__)
 

@@ -7,8 +7,8 @@ from fastapi.responses import JSONResponse, ORJSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from api.config import settings
-from api.logging import setup_logging, get_logger
-from api.routes import health
+from api.app_logging import setup_logging, get_logger
+from api.routes import health, ingest
 
 setup_logging()
 logger = get_logger(__name__)
@@ -63,6 +63,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 app.include_router(health.router, prefix="/api", tags=["health"])
+app.include_router(ingest.router, prefix="/api/ingest", tags=["ingest"])
 
 
 @app.get("/")
