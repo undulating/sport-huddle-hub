@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 interface ModelSelectorProps {
     pureElo: number;
     injuryElo: number;
+    recentElo: number;
     currentModel: number;
     selectedModel: number;
     onModelChange: (model: number) => void;
@@ -24,7 +25,7 @@ export const ModelSelector = ({ pureElo, injuryElo, selectedModel, currentModel,
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        placeholder for Models
+                        *~*
                     </SelectContent>
                 </Select>
             </div>

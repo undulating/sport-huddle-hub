@@ -43,7 +43,7 @@ export const GameCard = ({ game, className }: GameCardProps) => {
               homeTeam={game.homeTeam}
               awayTeam={game.awayTeam}
             />
-            <ModelSelector pureElo={0} injuryElo={0} currentModel={0} selectedModel={0} onModelChange={function (model: number): void {
+            <ModelSelector pureElo={0} recentElo={0} injuryElo={0} currentModel={0} selectedModel={0} onModelChange={function (model: number): void {
               throw new Error('Function not implemented.');
             }}
             />
@@ -80,7 +80,7 @@ export const GameCard = ({ game, className }: GameCardProps) => {
             </div>
           </div>
           <WinPercentageBar
-            percentage={game.awayWinPercentage}
+            percentage={Number(game.awayWinPercentage.toFixed(2))}
             teamName="Win Probability"
           />
           {game.modelData && (
@@ -117,7 +117,7 @@ export const GameCard = ({ game, className }: GameCardProps) => {
             </div>
           </div>
           <WinPercentageBar
-            percentage={game.homeWinPercentage}
+            percentage={Number(game.homeWinPercentage.toFixed(2))}
             teamName="Win Probability"
           />
         </div>
