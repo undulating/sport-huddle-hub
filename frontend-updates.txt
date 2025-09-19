@@ -1,0 +1,20 @@
+// In web/src/data/mockData.ts:
+
+export const seasons = [2025, 2024, 2023, 2022, 2021, 2020];
+
+export const getCurrentWeek = (): number => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const currentDate = now.getDate();
+  
+  // For September 18, 2025, we're in Week 3
+  if (currentYear === 2025 && currentMonth === 8) { // September is month 8
+    if (currentDate >= 16) return 3;  // Week 3
+    if (currentDate >= 9) return 2;   // Week 2
+    return 1; // Week 1
+  }
+  
+  // Default logic for other dates...
+  return 1;
+};

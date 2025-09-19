@@ -3,10 +3,10 @@ from datetime import datetime
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from api.config import settings
 from api.deps import get_request_id, get_db
-from api.storage.db import check_db_connection
 from api.app_logging import get_logger
 
 logger = get_logger(__name__)
@@ -44,14 +44,16 @@ async def health(
         },
     }
     
-    # Check database
+    # Check database - Use text() for raw SQL
     try:
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         health_status["services"]["database"] = "healthy"
     except Exception as e:
         health_status["services"]["database"] = "unhealthy"
         health_status["status"] = "degraded"
         logger.error(f"Database health check failed: {e}")
     
-    logger.info(f"Health check completed - {health_status['status']}")
+    # Fixed the f-string issue here - use variable instead of dict access in f-string
+    status_value = health_status["status"]
+    logger.info(f"Health check completed - {status_value}")
     return health_status

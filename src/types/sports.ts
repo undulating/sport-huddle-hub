@@ -6,6 +6,14 @@ export interface Player {
   formRating?: number; // 1-10 scale, will be filled by backend
 }
 
+export interface ModelData {
+  homeElo: number;
+  awayElo: number;
+  predictedSpread: number;
+  confidence: number;
+  modelVersion: string;
+}
+
 export interface Team {
   id: string;
   name: string;
@@ -32,6 +40,7 @@ export interface Game {
   isCompleted: boolean;
   homeScore?: number;
   awayScore?: number;
+  modelData?: ModelData;
 }
 
 export interface Season {

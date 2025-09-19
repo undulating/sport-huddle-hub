@@ -12,15 +12,15 @@ interface GameCardProps {
 
 export const GameCard = ({ game, className }: GameCardProps) => {
   const formatGameTime = (date: Date) => {
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
       minute: '2-digit',
-      hour12: true 
+      hour12: true
     });
   };
 
   const formatGameDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', { 
+    return date.toLocaleDateString('en-US', {
       weekday: 'short',
       month: 'short',
       day: 'numeric'
@@ -38,7 +38,7 @@ export const GameCard = ({ game, className }: GameCardProps) => {
             <Badge variant="outline" className="text-xs font-medium">
               Week {game.week}
             </Badge>
-            <TeamFormPopover 
+            <TeamFormPopover
               homeTeam={game.homeTeam}
               awayTeam={game.awayTeam}
             />
@@ -49,13 +49,13 @@ export const GameCard = ({ game, className }: GameCardProps) => {
           </div>
         </div>
       </CardHeader>
-      
+
       <CardContent className="space-y-4">
         {/* Away Team */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div 
+              <div
                 className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm"
                 style={{ backgroundColor: game.awayTeam.primaryColor }}
               >
@@ -74,10 +74,16 @@ export const GameCard = ({ game, className }: GameCardProps) => {
               </div>
             </div>
           </div>
-          <WinPercentageBar 
+          <WinPercentageBar
             percentage={game.awayWinPercentage}
             teamName="Win Probability"
           />
+          {game.modelData && (
+            <div className="mt-2 flex justify-between text-xs text-muted-foreground">
+              <span>Elo: {game.modelData.awayElo.toFixed(0)}</span>
+              <span>Elo: {game.modelData.homeElo.toFixed(0)}</span>
+            </div>
+          )}
         </div>
 
         <div className="border-l-2 border-muted mx-4 h-0"></div>
@@ -86,7 +92,7 @@ export const GameCard = ({ game, className }: GameCardProps) => {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div 
+              <div
                 className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm"
                 style={{ backgroundColor: game.homeTeam.primaryColor }}
               >
@@ -105,7 +111,7 @@ export const GameCard = ({ game, className }: GameCardProps) => {
               </div>
             </div>
           </div>
-          <WinPercentageBar 
+          <WinPercentageBar
             percentage={game.homeWinPercentage}
             teamName="Win Probability"
           />

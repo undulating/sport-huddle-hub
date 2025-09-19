@@ -168,12 +168,15 @@ export const mockSeason: Season = {
   games: mockGames
 };
 
+// src/data/mockData.ts - Update just the availableSports array
+
 export const availableSports: Sport[] = [
   {
     id: 'nfl',
     name: 'NFL',
     icon: '🏈',
-    seasons: [2023, 2024],
+    // Include all seasons including future 2025
+    seasons: [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025],
     currentSeason: 2024
   },
   {

@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     # Application
     TZ: str = Field(default="America/New_York")
     LOG_LEVEL: str = Field(default="INFO")
-    CORS_ORIGINS: List[str] = Field(default=["http://localhost:5173", "http://localhost:3000"])
+    CORS_ORIGINS: List[str] = Field(default=["http://localhost:8080", "http://localhost:3000"])
     
     class Config:
         env_file = ".env"
