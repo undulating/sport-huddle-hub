@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { WinPercentageBar } from './WinPercentageBar';
 import { TeamFormPopover } from './TeamFormPopover';
 import { cn } from '@/lib/utils';
+import { ModelSelector } from './ModelSelector';
 
 interface GameCardProps {
   game: Game;
@@ -41,6 +42,10 @@ export const GameCard = ({ game, className }: GameCardProps) => {
             <TeamFormPopover
               homeTeam={game.homeTeam}
               awayTeam={game.awayTeam}
+            />
+            <ModelSelector pureElo={0} injuryElo={0} currentModel={0} selectedModel={0} onModelChange={function (model: number): void {
+              throw new Error('Function not implemented.');
+            }}
             />
           </div>
           <div className="text-right text-xs text-muted-foreground">

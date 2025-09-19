@@ -45,7 +45,7 @@ export const DashboardHeader = ({
           {/* Sport Selector */}
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-muted-foreground">Sport:</span>
-            <SportSelector 
+            <SportSelector
               selectedSport={selectedSport}
               onSportChange={onSportChange}
             />
@@ -53,13 +53,13 @@ export const DashboardHeader = ({
 
           {/* Season & Week Controls */}
           <div className="flex items-center gap-6">
-            <SeasonSelector 
+            <SeasonSelector
               seasons={currentSportData?.seasons || []}
               selectedSeason={selectedSeason}
               onSeasonChange={onSeasonChange}
             />
-            
-            <WeekSelector 
+
+            <WeekSelector
               totalWeeks={totalWeeks}
               currentWeek={currentWeek}
               selectedWeek={selectedWeek}

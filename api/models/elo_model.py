@@ -180,7 +180,8 @@ class EloModel:
     def predict_game(
             self, 
             home_team_id: int, 
-            away_team_id: int
+            away_team_id: int,
+            game_date: Optional[datetime] = None 
         ) -> Dict[str, float]:
             """
             Predict outcome of a game.
