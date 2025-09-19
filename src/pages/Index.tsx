@@ -112,6 +112,7 @@ const Index = () => {
                   key={game.id}
                   game={game}
                   className={`animation-delay-${index * 100}`}
+                  selectedWeek={selectedWeek}
                 />
               ))}
             </div>

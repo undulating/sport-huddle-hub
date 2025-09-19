@@ -4,14 +4,14 @@ import { Badge } from '@/components/ui/badge';
 import { WinPercentageBar } from './WinPercentageBar';
 import { TeamFormPopover } from './TeamFormPopover';
 import { cn } from '@/lib/utils';
-import { ModelSelector } from './ModelSelector';
 
 interface GameCardProps {
   game: Game;
   className?: string;
+  selectedWeek?: number;
 }
 
-export const GameCard = ({ game, className }: GameCardProps) => {
+export const GameCard = ({ game, className, selectedWeek }: GameCardProps) => {
   const formatGameTime = (date: Date) => {
     return date.toLocaleTimeString('en-US', {
       hour: 'numeric',
@@ -37,15 +37,11 @@ export const GameCard = ({ game, className }: GameCardProps) => {
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
             <Badge variant="outline" className="text-xs font-medium">
-              Week {game.week}
+              Week {selectedWeek ?? game.week}
             </Badge>
             <TeamFormPopover
               homeTeam={game.homeTeam}
               awayTeam={game.awayTeam}
-            />
-            <ModelSelector pureElo={0} recentElo={0} injuryElo={0} currentModel={0} selectedModel={0} onModelChange={function (model: number): void {
-              throw new Error('Function not implemented.');
-            }}
             />
           </div>
           <div className="text-right text-xs text-muted-foreground">
@@ -83,12 +79,7 @@ export const GameCard = ({ game, className }: GameCardProps) => {
             percentage={Number(game.awayWinPercentage.toFixed(2))}
             teamName="Win Probability"
           />
-          {game.modelData && (
-            <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-              <span>Elo: {game.modelData.awayElo.toFixed(0)}</span>
-              <span>Elo: {game.modelData.homeElo.toFixed(0)}</span>
-            </div>
-          )}
+
         </div>
 
         <div className="border-l-2 border-muted mx-4 h-0"></div>
