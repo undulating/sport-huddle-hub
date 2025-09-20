@@ -25,12 +25,12 @@ class GameDTO(BaseModel):
     """Game data from provider."""
     external_id: str
     season: int
-    season_type: str  # PRE, REG, POST
-    week: int
+    season_type: str = "REG"  # PRE, REG, POST - Give it a default
+    week: Optional[int] = None  # Make optional for full season queries
     home_team_external_id: str
     away_team_external_id: str
     game_date: datetime
-    kickoff_time: datetime
+    kickoff_time: Optional[datetime] = None  # Make OPTIONAL
     status: str = "SCHEDULED"
     home_score: Optional[int] = None
     away_score: Optional[int] = None
@@ -40,6 +40,17 @@ class GameDTO(BaseModel):
     temperature: Optional[float] = None
     wind_speed: Optional[float] = None
     weather_condition: Optional[str] = None
+    
+    
+    # Add these fields that were missing
+    game_type: Optional[str] = None  # Added
+    is_completed: Optional[bool] = False  # Added
+    weather_temperature: Optional[float] = None  # Added (alias for temperature)
+    weather_wind_speed: Optional[float] = None  # Added (alias for wind_speed)
+    home_spread: Optional[float] = None  # Already added by you
+    total_over_under: Optional[float] = None  # Already added by you
+    home_moneyline: Optional[float] = None  # Added
+    away_moneyline: Optional[float] = None  # Added
 
 
 class OddsDTO(BaseModel):

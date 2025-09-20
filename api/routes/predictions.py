@@ -9,6 +9,8 @@ from api.deps import get_db
 from api.storage.models import Game, Team, ModelVersion
 from api.models.elo_model import EloModel
 from api.app_logging import get_logger
+from api.adapters.base import ProviderRegistry  # Add this import
+from api.config import settings  # Add this import
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -39,6 +41,15 @@ class PredictionResponse(BaseModel):
     away_win_probability: float
     predicted_spread: float
     stadium: Optional[str]
+
+class TeamResponse(BaseModel):  # Add this class
+    """Team response model."""
+    abbreviation: str
+    name: str
+    city: str
+    conference: str
+    division: str
+    elo_rating: Optional[float] = None
 
 @router.get("/", response_model=List[PredictionResponse])
 async def get_predictions(
@@ -107,3 +118,42 @@ async def get_predictions(
     
     logger.info(f"Returning {len(predictions)} predictions")
     return predictions
+
+
+@router.get("/teams", response_model=List[TeamResponse])  # ADD THIS NEW ENDPOINT
+async def get_teams(
+    db: Session = Depends(get_db)
+) -> List[TeamResponse]:
+    """Get all teams with their current Elo ratings."""
+    logger.info("Getting all teams")
+    
+    # Get teams from the provider
+    adapter = ProviderRegistry.get_adapter(settings.PROVIDER)
+    provider_teams = adapter.get_teams()
+    
+    # Get Elo model for ratings
+    elo_model = get_elo_model()
+    elo_model.load_ratings_from_db()
+    
+    teams_response = []
+    for team in provider_teams:
+        # Get Elo rating from database
+        db_team = db.query(Team).filter(
+            Team.abbreviation == team.abbreviation
+        ).first()
+        
+        elo_rating = None
+        if db_team:
+            elo_rating = elo_model.ratings.get(db_team.id, 1500.0)
+        
+        teams_response.append(TeamResponse(
+            abbreviation=team.abbreviation,
+            name=team.name,
+            city=team.city,
+            conference=team.conference,
+            division=team.division,
+            elo_rating=elo_rating
+        ))
+    
+    logger.info(f"Returning {len(teams_response)} teams")
+    return teams_response
