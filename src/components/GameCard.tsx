@@ -4,6 +4,9 @@ import { Badge } from '@/components/ui/badge';
 import { WinPercentageBar } from './WinPercentageBar';
 import { TeamFormPopover } from './TeamFormPopover';
 import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input'; // ⟵ shadcn Input
+
+import { useMemo, useState } from 'react';
 
 interface GameCardProps {
   game: Game;
@@ -12,6 +15,9 @@ interface GameCardProps {
 }
 
 export const GameCard = ({ game, className, selectedWeek }: GameCardProps) => {
+  const [awayStake, setAwayStake] = useState<string>('');
+  const [homeStake, setHomeStake] = useState<string>('');
+
   const formatGameTime = (date: Date) => {
     return date.toLocaleTimeString('en-US', {
       hour: 'numeric',
@@ -26,6 +32,98 @@ export const GameCard = ({ game, className, selectedWeek }: GameCardProps) => {
       month: 'short',
       day: 'numeric'
     });
+  };
+
+  // --- Moneyline math helpers ---
+  const toNumber = (v: string) => {
+    const n = parseFloat(v);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  };
+
+  /**
+   * Returns { payout, profit } given American odds and a stake.
+   * payout = stake + profit
+   */
+  const calcMoneyline = (odds?: number | null, stakeStr?: string) => {
+    if (odds == null) return { payout: 0, profit: 0 };
+    const stake = toNumber(stakeStr ?? '');
+    if (stake <= 0) return { payout: 0, profit: 0 };
+
+    let profit = 0;
+    if (odds > 0) {
+      profit = (stake * odds) / 100;
+    } else if (odds < 0) {
+      profit = (stake * 100) / Math.abs(odds);
+    }
+    const payout = stake + profit;
+    return { payout, profit };
+  };
+
+  const fmtUSD = (n: number) =>
+    n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
+
+  const awayCalc = useMemo(
+    () => calcMoneyline(game.awayMoneyline, awayStake),
+    [game.awayMoneyline, awayStake]
+  );
+  const homeCalc = useMemo(
+    () => calcMoneyline(game.homeMoneyline, homeStake),
+    [game.homeMoneyline, homeStake]
+  );
+
+  const MoneylineRow = ({
+    label,
+    odds,
+    stake,
+    setStake,
+    payout,
+    profit,
+    indent = true
+  }: {
+    label: string;
+    odds?: number | null;
+    stake: string;
+    setStake: (s: string) => void;
+    payout: number;
+    profit: number;
+    indent?: boolean;
+  }) => {
+    const disabled = odds == null;
+    return (
+      <div className={cn('text-xs text-muted-foreground', indent && 'pl-11')}>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span>
+            {label}:{' '}
+            <span className="font-semibold">
+              {odds != null ? (odds > 0 ? `+${odds}` : odds) : '—'}
+            </span>
+          </span>
+
+          {/* stake input */}
+          <div className="flex items-center gap-1">
+            <span className="opacity-80">$</span>
+            <Input
+              type="number"
+              inputMode="decimal"
+              step="5"
+              min="0"
+              placeholder="0"
+              className="h-7 w-24 px-2 py-1 text-xs"
+              value={stake}
+              onChange={(e) => setStake(e.target.value)}
+              disabled={disabled}
+            />
+            <span className="opacity-80">stake</span>
+          </div>
+
+          {/* results */}
+          <div className={cn('flex items-center gap-2', disabled && 'opacity-50')}>
+            <span>Payout: <span className="font-semibold">{fmtUSD(payout)}</span></span>
+            <span>Profit: <span className="font-semibold">{fmtUSD(profit)}</span></span>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -79,7 +177,16 @@ export const GameCard = ({ game, className, selectedWeek }: GameCardProps) => {
             percentage={Number(game.awayWinPercentage.toFixed(2))}
             teamName="Win Probability"
           />
-
+          {typeof game.awayMoneyline !== 'undefined' && (
+            <MoneylineRow
+              label="Moneyline"
+              odds={game.awayMoneyline}
+              stake={awayStake}
+              setStake={setAwayStake}
+              payout={awayCalc.payout}
+              profit={awayCalc.profit}
+            />
+          )}
         </div>
 
         <div className="border-l-2 border-muted mx-4 h-0"></div>
@@ -111,6 +218,16 @@ export const GameCard = ({ game, className, selectedWeek }: GameCardProps) => {
             percentage={Number(game.homeWinPercentage.toFixed(2))}
             teamName="Win Probability"
           />
+          {typeof game.homeMoneyline !== 'undefined' && (
+            <MoneylineRow
+              label="Moneyline"
+              odds={game.homeMoneyline}
+              stake={homeStake}
+              setStake={setHomeStake}
+              payout={homeCalc.payout}
+              profit={homeCalc.profit}
+            />
+          )}
         </div>
 
         {game.isCompleted && game.homeScore !== undefined && game.awayScore !== undefined && (

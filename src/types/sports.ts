@@ -41,6 +41,8 @@ export interface Game {
   homeScore?: number;
   awayScore?: number;
   modelData?: ModelData;
+  homeMoneyline?: number;
+  awayMoneyline?: number;
 }
 
 export interface Season {

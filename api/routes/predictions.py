@@ -41,6 +41,8 @@ class PredictionResponse(BaseModel):
     away_win_probability: float
     predicted_spread: float
     stadium: Optional[str]
+    home_moneyline: Optional[float] = None
+    away_moneyline: Optional[float] = None
 
 class TeamResponse(BaseModel):  # Add this class
     """Team response model."""
@@ -96,6 +98,9 @@ async def get_predictions(
                 "predicted_spread": 0
             }
         
+        home_moneyline = game.home_moneyline if hasattr(game, 'home_moneyline') else None
+        away_moneyline = game.away_moneyline if hasattr(game, 'away_moneyline') else None
+        
         predictions.append(PredictionResponse(
             game_id=game.id,
             season=game.season,
@@ -110,7 +115,9 @@ async def get_predictions(
             home_win_probability=elo_pred["home_win_probability"],
             away_win_probability=elo_pred["away_win_probability"],
             predicted_spread=elo_pred["predicted_spread"],
-            stadium=game.stadium
+            stadium=game.stadium,
+            home_moneyline=home_moneyline,
+            away_moneyline=away_moneyline
         ))
     
     # Sort by game date/time

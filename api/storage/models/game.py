@@ -65,6 +65,8 @@ class Game(Base):
     # Betting info
     home_spread = Column(Float)
     total_over_under = Column(Float)
+    home_moneyline = Column(Float, nullable=True)
+    away_moneyline = Column(Float, nullable=True)
     
     # Checksums for deduplication
     checksum = Column(String(64), index=True)
