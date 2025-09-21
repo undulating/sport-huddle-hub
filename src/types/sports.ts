@@ -12,6 +12,7 @@ export interface ModelData {
   predictedSpread: number;
   confidence: number;
   modelVersion: string;
+  modelUsed?: string;
 }
 
 export interface Team {
