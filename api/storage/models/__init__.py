@@ -8,8 +8,9 @@ from api.storage.models.model_version import ModelVersion
 from api.storage.models.model_run import ModelRun
 from api.storage.models.prediction import Prediction
 from api.storage.models.evaluation import Evaluation
+from api.storage.models.player import Player
 
 __all__ = [
     'Team', 'Game', 'Odds', 'Injury', 'Weather',
-    'ModelVersion', 'ModelRun', 'Prediction', 'Evaluation'
+    'ModelVersion', 'ModelRun', 'Prediction', 'Evaluation', 'Player'
 ]

@@ -9,6 +9,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from api.config import settings
 from api.app_logging import setup_logging, get_logger
 
+
 setup_logging()
 logger = get_logger(__name__)
 
@@ -44,6 +45,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
         status_code=exc.status_code,
         content={"error": {"message": exc.detail, "type": "http_error"}},
     )
+
 
 
 @app.exception_handler(RequestValidationError)
@@ -83,6 +85,12 @@ try:
 except Exception as e:
     logger.error(f"Could not register predictions router: {e}")
 
+try:
+    from api.routes import players
+    app.include_router(players.router, prefix="/api/players", tags=["players"])
+    logger.info("Players registered")
+except Exception as e:
+    logger.error(f"Could not register players: {e}")
 
 @app.get("/")
 async def root():

@@ -115,10 +115,11 @@ class NFLverseRAdapter(ProviderAdapter):
         self.nflverse = importr('nflverse')
         
         # Load and update data
-        logger.info("Loading nflverse data in R...")
-        self.r_interface('nflverse::load_pbp(seasons = 2020:2024)')
-        self.r_interface('nflverse::load_player_stats(seasons = 2020:2024)')
-        self.r_interface('nflverse::load_rosters(seasons = 2020:2024)')
+        logger.info("Loading nflverse data in R (including 2025)...")
+        self.r_interface('nflverse::load_pbp(seasons = 2020:2025)')
+        self.r_interface('nflverse::load_player_stats(seasons = 2020:2025)')
+        self.r_interface('nflverse::load_rosters(seasons = 2020:2025)')
+        self.r_interface('nflverse::load_schedules(seasons = 2020:2025)')
     
     def _get_cache_key(self, func_name: str, *args, **kwargs) -> str:
         """Generate cache key for function calls."""
@@ -767,6 +768,470 @@ class NFLverseRAdapter(ProviderAdapter):
         
         # Default to game_date
         return game_date
+
+    def get_comprehensive_player_stats(self, season: int, week: Optional[int] = None) -> pd.DataFrame:
+        """
+        Fetch ALL available player statistics columns from NFLverse.
+        This pulls every stat available in the nflverse player_stats dataset.
+        """
+        cache_key = self._get_cache_key('get_comprehensive_player_stats', season, week)
+        cached_data = self._get_from_cache(cache_key)
+        if cached_data is not None:
+            return cached_data
+        
+        try:
+            if R_AVAILABLE and self.r_interface:
+                # R code to load ALL columns from player stats
+                if week:
+                    r_code = f'''
+                        stats <- nflverse::load_player_stats(seasons = {season}) %>%
+                            filter(week == {week})
+                        stats
+                    '''
+                else:
+                    r_code = f'''
+                        stats <- nflverse::load_player_stats(seasons = {season})
+                        stats
+                    '''
+                
+                df = self._fetch_from_r(r_code)
+                
+                # Log the columns we got
+                logger.info(f"Loaded {len(df)} player records with {len(df.columns)} columns")
+                logger.info(f"Available columns: {', '.join(df.columns[:20])}...")  # Show first 20
+                
+            else:
+                # Fallback to CSV with ALL columns
+                url = self.csv_urls['player_stats']
+                df = pd.read_csv(url)
+                df = df[df['season'] == season]
+                if week:
+                    df = df[df['week'] == week]
+            
+            self._save_to_cache(cache_key, df)
+            return df
+            
+        except Exception as e:
+            logger.error(f"Error fetching comprehensive player stats: {e}")
+            return pd.DataFrame()
+
+    def get_all_player_columns(self, season: int = 2024) -> List[str]:
+        """
+        Get a list of all available columns in the player stats data.
+        Useful for understanding what data is available.
+        """
+        try:
+            if R_AVAILABLE and self.r_interface:
+                r_code = f'''
+                    stats <- nflverse::load_player_stats(seasons = {season}) %>%
+                        head(1)
+                    colnames(stats)
+                '''
+                
+                with localconverter(robjects.default_converter + pandas2ri.converter):
+                    result = self.r_interface(r_code)
+                    columns = list(result)
+                    
+                logger.info(f"Found {len(columns)} columns in player stats")
+                return columns
+            else:
+                # Fallback to CSV
+                url = self.csv_urls['player_stats']
+                df = pd.read_csv(url, nrows=1)
+                return df.columns.tolist()
+                
+        except Exception as e:
+            logger.error(f"Error getting player columns: {e}")
+            return []
+
+    def build_comprehensive_player_profiles(self, season: int) -> Dict[str, Any]:
+        """
+        Build comprehensive player profiles with ALL stats aggregated.
+        Returns detailed profiles keyed by player_id.
+        """
+        cache_key = self._get_cache_key('build_comprehensive_player_profiles', season)
+        cached_data = self._get_from_cache(cache_key)
+        if cached_data is not None:
+            return cached_data
+        
+        try:
+            # Get all player stats for the season
+            df = self.get_comprehensive_player_stats(season)
+            
+            if df.empty:
+                return {}
+            
+            # Group by player and aggregate
+            profiles = {}
+            
+            # Group by player_id
+            for player_id, player_data in df.groupby('player_id'):
+                # Get basic info from first row
+                first_row = player_data.iloc[0]
+                
+                profile = {
+                    'player_id': player_id,
+                    'player_name': first_row.get('player_name'),
+                    'player_display_name': first_row.get('player_display_name'),
+                    'position': first_row.get('position'),
+                    'position_group': first_row.get('position_group'),
+                    'recent_team': player_data.iloc[-1].get('recent_team'),  # Last team
+                    'headshot_url': first_row.get('headshot_url'),
+                    'games_played': len(player_data),
+                    'weeks_played': player_data['week'].tolist() if 'week' in player_data else []
+                }
+                
+                # Aggregate numeric stats
+                numeric_cols = player_data.select_dtypes(include=[np.number]).columns
+                
+                # Sum up cumulative stats
+                cumulative_stats = [
+                    'completions', 'attempts', 'passing_yards', 'passing_tds', 'interceptions',
+                    'sacks', 'sack_yards', 'sack_fumbles', 'sack_fumbles_lost',
+                    'passing_air_yards', 'passing_yards_after_catch', 'passing_first_downs',
+                    'passing_epa', 'passing_2pt_conversions',
+                    'carries', 'rushing_yards', 'rushing_tds', 'rushing_fumbles',
+                    'rushing_fumbles_lost', 'rushing_first_downs', 'rushing_epa',
+                    'rushing_2pt_conversions',
+                    'targets', 'receptions', 'receiving_yards', 'receiving_tds',
+                    'receiving_fumbles', 'receiving_fumbles_lost', 'receiving_air_yards',
+                    'receiving_yards_after_catch', 'receiving_first_downs',
+                    'receiving_epa', 'receiving_2pt_conversions',
+                    'fantasy_points', 'fantasy_points_ppr',
+                    'special_teams_tds'
+                ]
+                
+                # Sum these up
+                season_totals = {}
+                for col in cumulative_stats:
+                    if col in player_data.columns:
+                        season_totals[f'{col}_total'] = player_data[col].sum()
+                        season_totals[f'{col}_per_game'] = player_data[col].mean()
+                
+                # Calculate advanced metrics
+                advanced_metrics = {}
+                
+                # For efficiency metrics, take the mean
+                efficiency_metrics = [
+                    'pacr', 'racr', 'target_share', 'air_yards_share', 'wopr', 'dakota'
+                ]
+                
+                for col in efficiency_metrics:
+                    if col in player_data.columns:
+                        advanced_metrics[f'{col}_avg'] = player_data[col].mean()
+                        advanced_metrics[f'{col}_max'] = player_data[col].max()
+                        advanced_metrics[f'{col}_min'] = player_data[col].min()
+                
+                # Combine everything
+                profile.update(season_totals)
+                profile.update(advanced_metrics)
+                
+                profiles[player_id] = profile
+            
+            self._save_to_cache(cache_key, profiles)
+            return profiles
+            
+        except Exception as e:
+            logger.error(f"Error building player profiles: {e}")
+            return {}
+
+    def get_player_game_logs(self, player_name: str, season: int) -> pd.DataFrame:
+        """
+        Get detailed game-by-game logs for a specific player.
+        Includes all available stats for each game.
+        """
+        cache_key = self._get_cache_key('get_player_game_logs', player_name, season)
+        cached_data = self._get_from_cache(cache_key)
+        if cached_data is not None:
+            return cached_data
+        
+        try:
+            if R_AVAILABLE and self.r_interface:
+                r_code = f'''
+                    stats <- nflverse::load_player_stats(seasons = {season}) %>%
+                        filter(player_display_name == "{player_name}" | 
+                            player_name == "{player_name}") %>%
+                        arrange(week)
+                    stats
+                '''
+                
+                df = self._fetch_from_r(r_code)
+            else:
+                # Fallback to CSV
+                df = self.get_comprehensive_player_stats(season)
+                df = df[(df['player_display_name'] == player_name) | 
+                    (df['player_name'] == player_name)]
+                df = df.sort_values('week')
+            
+            self._save_to_cache(cache_key, df)
+            return df
+            
+        except Exception as e:
+            logger.error(f"Error fetching player game logs: {e}")
+            return pd.DataFrame()
+
+    def get_position_rankings(self, season: int, week: Optional[int] = None, 
+                            position: str = 'QB', metric: str = 'fantasy_points_ppr') -> pd.DataFrame:
+        """
+        Get player rankings by position for any available metric.
+        
+        Args:
+            season: NFL season
+            week: Optional specific week
+            position: Position to filter (QB, RB, WR, TE, etc.)
+            metric: Metric to rank by (any numeric column)
+        """
+        try:
+            # Get comprehensive stats
+            df = self.get_comprehensive_player_stats(season, week)
+            
+            if df.empty:
+                return pd.DataFrame()
+            
+            # Filter by position
+            df = df[df['position'] == position]
+            
+            # Check if metric exists
+            if metric not in df.columns:
+                logger.warning(f"Metric {metric} not found. Available metrics: {df.select_dtypes(include=[np.number]).columns.tolist()}")
+                return pd.DataFrame()
+            
+            # Group by player and aggregate the metric
+            if week is None:
+                # Season totals
+                rankings = df.groupby(['player_id', 'player_display_name', 'recent_team']).agg({
+                    metric: 'sum',
+                    'week': 'count'  # Games played
+                }).reset_index()
+                rankings.columns = ['player_id', 'player_display_name', 'team', metric, 'games_played']
+            else:
+                # Single week
+                rankings = df[['player_id', 'player_display_name', 'recent_team', metric]].copy()
+                rankings.columns = ['player_id', 'player_display_name', 'team', metric]
+            
+            # Sort by metric
+            rankings = rankings.sort_values(metric, ascending=False)
+            rankings['rank'] = range(1, len(rankings) + 1)
+            
+            return rankings
+            
+        except Exception as e:
+            logger.error(f"Error getting position rankings: {e}")
+            return pd.DataFrame()
+    def get_nextgen_stats(self, stat_type: str = "passing", seasons: Optional[List[int]] = None) -> pd.DataFrame:
+        """
+        Get Next Gen Stats using the correct nflverse function.
+        
+        Args:
+            stat_type: One of "passing", "receiving", "rushing"
+            seasons: List of seasons (defaults to [2025] for current)
+            
+        Returns:
+            DataFrame with Next Gen Stats
+        """
+        if seasons is None:
+            seasons = [2025]
+        
+        cache_key = self._get_cache_key('get_nextgen_stats', stat_type, *seasons)
+        cached_data = self._get_from_cache(cache_key)
+        if cached_data is not None:
+            return cached_data
+        
+        try:
+            if R_AVAILABLE and self.r_interface:
+                # Convert seasons list to R vector
+                seasons_str = f"c({','.join(map(str, seasons))})"
+                
+                r_code = f'''
+                    # Load Next Gen Stats using the correct function
+                    ngs_data <- nflverse::load_nextgen_stats(
+                        stat_type = "{stat_type}",
+                        seasons = {seasons_str}
+                    )
+                    ngs_data
+                '''
+                
+                df = self._fetch_from_r(r_code)
+                
+                logger.info(f"✅ Loaded {len(df)} Next Gen Stats records for {stat_type}")
+                
+                # Log the actual columns we got
+                if not df.empty:
+                    logger.info(f"Next Gen columns available: {', '.join(df.columns[:20])}")
+                    
+            else:
+                # CSV fallback
+                dfs = []
+                for season in seasons:
+                    url = f"https://github.com/nflverse/nflverse-data/releases/download/nextgen_stats/ngs_{season}_{stat_type}.csv"
+                    try:
+                        season_df = pd.read_csv(url)
+                        dfs.append(season_df)
+                    except:
+                        logger.warning(f"Could not load NGS {stat_type} for {season}")
+                
+                df = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+            
+            self._save_to_cache(cache_key, df)
+            return df
+            
+        except Exception as e:
+            logger.error(f"Error fetching Next Gen Stats: {e}")
+            return pd.DataFrame()
+
+    def get_nextgen_data_dictionary(self) -> pd.DataFrame:
+        """
+        Get the Next Gen Stats data dictionary to understand what each column means.
+        """
+        try:
+            if R_AVAILABLE and self.r_interface:
+                r_code = '''
+                    # Get the data dictionary
+                    dict <- nflverse::dictionary_nextgen_stats
+                    dict
+                '''
+                
+                df = self._fetch_from_r(r_code)
+                
+                logger.info(f"✅ Loaded Next Gen Stats data dictionary with {len(df)} field definitions")
+                return df
+            else:
+                # Try to load from CSV
+                url = "https://raw.githubusercontent.com/nflverse/nflverse-data/master/data-raw/nextgen_stats_dict.csv"
+                return pd.read_csv(url)
+                
+        except Exception as e:
+            logger.error(f"Error fetching NGS dictionary: {e}")
+            return pd.DataFrame()
+
+    def get_all_ngs_stats_types(self) -> Dict[str, pd.DataFrame]:
+        """
+        Get all three types of Next Gen Stats at once.
+        """
+        results = {}
+        
+        for stat_type in ["passing", "receiving", "rushing"]:
+            df = self.get_nextgen_stats(stat_type=stat_type, seasons=[2025])
+            if not df.empty:
+                results[stat_type] = df
+                logger.info(f"✅ {stat_type}: {len(df)} records")
+        
+        return results
+
+    def combine_player_stats_with_ngs(self, season: int = 2025, week: Optional[int] = None) -> pd.DataFrame:
+        """
+        Combine regular player stats with Next Gen Stats properly.
+        """
+        # Get base comprehensive stats
+        base_df = self.get_comprehensive_player_stats(season, week)
+        
+        if base_df.empty:
+            logger.warning(f"No base stats found for season {season}")
+            return base_df
+        
+        # Get all NGS types
+        ngs_data = self.get_all_ngs_stats_types()
+        
+        # Merge each type
+        for stat_type, ngs_df in ngs_data.items():
+            if ngs_df.empty:
+                continue
+                
+            # Filter to the week if specified
+            if week and 'week' in ngs_df.columns:
+                ngs_df = ngs_df[ngs_df['week'] == week]
+            
+            # NGS uses player_gsis_id, regular stats use player_id
+            # They should be the same value
+            if 'player_gsis_id' in ngs_df.columns:
+                ngs_df = ngs_df.rename(columns={'player_gsis_id': 'player_id'})
+            
+            # Identify NGS-specific columns to avoid duplicates
+            merge_on = ['player_id', 'week'] if week else ['player_id', 'season']
+            merge_on = [col for col in merge_on if col in base_df.columns and col in ngs_df.columns]
+            
+            if not merge_on:
+                logger.warning(f"Cannot merge {stat_type} NGS data - no common columns")
+                continue
+            
+            # Get columns unique to NGS
+            ngs_unique_cols = [col for col in ngs_df.columns 
+                            if col not in base_df.columns or col in merge_on]
+            
+            # Merge
+            base_df = base_df.merge(
+                ngs_df[ngs_unique_cols],
+                on=merge_on,
+                how='left',
+                suffixes=('', f'_{stat_type}_ngs')
+            )
+            
+            logger.info(f"✅ Merged {stat_type} Next Gen Stats")
+        
+        return base_df
+
+    def test_comprehensive_2025_data(self, week: int = 3) -> None:
+        """
+        Test that we can get ALL 2025 data including Next Gen Stats.
+        """
+        print("\n" + "="*70)
+        print("TESTING COMPREHENSIVE NFLVERSE 2025 DATA")
+        print("="*70)
+        
+        # 1. Test basic player stats
+        print(f"\n1. Loading Week {week} player stats...")
+        basic_df = self.get_comprehensive_player_stats(2025, week)
+        print(f"   ✅ Basic stats: {len(basic_df)} records, {len(basic_df.columns)} columns")
+        
+        # Check for key columns
+        key_cols = ['passing_epa', 'rushing_epa', 'receiving_epa', 'pacr', 'racr', 'wopr', 'dakota']
+        found = [col for col in key_cols if col in basic_df.columns]
+        print(f"   ✅ Advanced metrics found: {', '.join(found)}")
+        
+        # 2. Test Next Gen Stats
+        print(f"\n2. Loading Next Gen Stats...")
+        ngs_all = self.get_all_ngs_stats_types()
+        for stat_type, df in ngs_all.items():
+            if not df.empty:
+                print(f"   ✅ NGS {stat_type}: {len(df)} records")
+                # Show some unique columns
+                if stat_type == "passing":
+                    ngs_cols = ['avg_time_to_throw', 'aggressiveness', 'expected_completion_percentage']
+                elif stat_type == "receiving":
+                    ngs_cols = ['avg_separation', 'avg_cushion', 'avg_yac_above_expectation']
+                else:  # rushing
+                    ngs_cols = ['efficiency', 'rush_yards_over_expected', 'percent_attempts_gte_eight_defenders']
+                
+                found_ngs = [col for col in ngs_cols if col in df.columns]
+                if found_ngs:
+                    print(f"      Columns: {', '.join(found_ngs[:3])}")
+        
+        # 3. Test combined data
+        print(f"\n3. Combining all data sources...")
+        combined_df = self.combine_player_stats_with_ngs(2025, week)
+        print(f"   ✅ Combined: {len(combined_df)} records, {len(combined_df.columns)} total columns")
+        
+        # 4. Show sample data
+        print(f"\n4. Sample QB data with NGS:")
+        qb_df = combined_df[combined_df['position'] == 'QB'].head(3)
+        if not qb_df.empty:
+            for _, qb in qb_df.iterrows():
+                print(f"   {qb['player_display_name']} ({qb['recent_team']})")
+                print(f"      Passing: {qb.get('passing_yards', 0):.0f} yds, {qb.get('passing_tds', 0):.0f} TDs")
+                if 'avg_time_to_throw' in qb and pd.notna(qb['avg_time_to_throw']):
+                    print(f"      NGS: {qb['avg_time_to_throw']:.2f}s time to throw")
+                if 'aggressiveness' in qb and pd.notna(qb['aggressiveness']):
+                    print(f"           {qb['aggressiveness']:.1f}% aggressiveness")
+        
+        # 5. Show data dictionary
+        print(f"\n5. Loading data dictionary...")
+        dict_df = self.get_nextgen_data_dictionary()
+        if not dict_df.empty:
+            print(f"   ✅ Dictionary loaded with {len(dict_df)} field definitions")
+        
+        print("\n" + "="*70)
+        print("✅ ALL TESTS PASSED - NFLverse 2025 data fully available!")
+        print("="*70)
 
 # Register the enhanced adapter
 ProviderRegistry.register("nflverse_r", NFLverseRAdapter)

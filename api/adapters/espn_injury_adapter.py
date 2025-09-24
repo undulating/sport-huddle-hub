@@ -53,11 +53,18 @@ class ESPNInjuryAdapter:
             data = response.json()
             injuries = []
             
-            # ESPN returns injuries grouped by team
-            for team_data in data.get('teams', []):
+            # The injuries are directly under 'injuries' key, not 'teams'
+            for team_data in data.get('injuries', []):
                 team_abbr = team_data.get('abbreviation', '')
+                if not team_abbr:
+                    # Try to get abbreviation from displayName
+                    display_name = team_data.get('displayName', '')
+                    # Extract abbreviation from team name (e.g., "Arizona Cardinals" -> need lookup)
+                    team_abbr = self._get_team_abbr_from_name(display_name)
+                
                 team_abbr = self.team_mapping.get(team_abbr, team_abbr)
                 
+                # Each team has an 'injuries' array
                 for athlete in team_data.get('injuries', []):
                     injury_dto = self._parse_athlete_injury(athlete, team_abbr)
                     if injury_dto:
@@ -72,67 +79,83 @@ class ESPNInjuryAdapter:
         except Exception as e:
             logger.error(f"Error parsing ESPN injuries: {e}")
             return []
-    
-    def get_team_injuries(self, team_abbr: str) -> List[InjuryDTO]:
-        """
-        Get injuries for a specific team.
-        
-        Args:
-            team_abbr: Team abbreviation (e.g., 'BUF', 'KC')
-        """
-        try:
-            # ESPN uses team IDs, but we can also filter from all injuries
-            all_injuries = self.get_all_injuries()
-            
-            # Filter for specific team
-            team_injuries = [
-                inj for inj in all_injuries 
-                if inj.team_external_id == team_abbr
-            ]
-            
-            return team_injuries
-            
-        except Exception as e:
-            logger.error(f"Error getting team injuries for {team_abbr}: {e}")
-            return []
-    
+
+    def _get_team_abbr_from_name(self, team_name: str) -> str:
+        """Map team display names to abbreviations."""
+        team_name_map = {
+            'Arizona Cardinals': 'ARI',
+            'Atlanta Falcons': 'ATL',
+            'Baltimore Ravens': 'BAL',
+            'Buffalo Bills': 'BUF',
+            'Carolina Panthers': 'CAR',
+            'Chicago Bears': 'CHI',
+            'Cincinnati Bengals': 'CIN',
+            'Cleveland Browns': 'CLE',
+            'Dallas Cowboys': 'DAL',
+            'Denver Broncos': 'DEN',
+            'Detroit Lions': 'DET',
+            'Green Bay Packers': 'GB',
+            'Houston Texans': 'HOU',
+            'Indianapolis Colts': 'IND',
+            'Jacksonville Jaguars': 'JAX',
+            'Kansas City Chiefs': 'KC',
+            'Las Vegas Raiders': 'LV',
+            'Los Angeles Chargers': 'LAC',
+            'Los Angeles Rams': 'LAR',
+            'Miami Dolphins': 'MIA',
+            'Minnesota Vikings': 'MIN',
+            'New England Patriots': 'NE',
+            'New Orleans Saints': 'NO',
+            'New York Giants': 'NYG',
+            'New York Jets': 'NYJ',
+            'Philadelphia Eagles': 'PHI',
+            'Pittsburgh Steelers': 'PIT',
+            'San Francisco 49ers': 'SF',
+            'Seattle Seahawks': 'SEA',
+            'Tampa Bay Buccaneers': 'TB',
+            'Tennessee Titans': 'TEN',
+            'Washington Commanders': 'WAS'
+        }
+        return team_name_map.get(team_name, team_name[:3].upper())
+
     def _parse_athlete_injury(self, athlete_data: Dict, team_abbr: str) -> Optional[InjuryDTO]:
         """Parse individual athlete injury data from ESPN format."""
         try:
-            # Extract athlete info
-            athlete_info = athlete_data.get('athlete', {})
+            # The structure is different - adjust parsing
+            player_name = athlete_data.get('athlete', {}).get('displayName', '')
+            if not player_name:
+                player_name = athlete_data.get('fullName', 'Unknown')
             
-            # Get player details
-            player_name = athlete_info.get('displayName', 'Unknown')
-            position = athlete_info.get('position', {}).get('abbreviation', 'Unknown')
-            jersey = athlete_info.get('jersey')
+            # Get position
+            position = athlete_data.get('athlete', {}).get('position', {}).get('abbreviation', '')
+            if not position:
+                position = 'Unknown'
             
-            # Get injury details
+            # Get jersey number
+            jersey = athlete_data.get('athlete', {}).get('jersey')
+            
+            # Get injury status
             status = athlete_data.get('status', 'questionable').lower()
             status = self.status_mapping.get(status, 'QUESTIONABLE')
             
-            # Get injury type/description
-            injury_details = athlete_data.get('details', {})
-            injury_type = injury_details.get('type', 'Unknown')
-            injury_location = injury_details.get('location', '')
-            injury_detail = injury_details.get('detail', '')
+            # Get injury description from longComment
+            injury_description = athlete_data.get('longComment', '')
+            if not injury_description:
+                injury_description = athlete_data.get('shortComment', 'Unknown')
             
-            # Combine injury information
-            if injury_location and injury_detail:
-                injury_description = f"{injury_location} - {injury_detail}"
-            elif injury_location:
-                injury_description = injury_location
-            elif injury_type:
-                injury_description = injury_type
+            # Extract injury type from description (first few words usually contain it)
+            if injury_description:
+                # Look for common injury keywords
+                injury_keywords = ['concussion', 'hamstring', 'knee', 'ankle', 'shoulder', 
+                                'back', 'groin', 'quad', 'calf', 'foot', 'hip', 'chest',
+                                'ribs', 'wrist', 'elbow', 'neck', 'abdomen']
+                injury_type = 'Unknown'
+                for keyword in injury_keywords:
+                    if keyword.lower() in injury_description.lower():
+                        injury_type = keyword.capitalize()
+                        break
             else:
-                injury_description = "Unknown"
-            
-            # Get dates
-            date_string = injury_details.get('date', '')
-            if date_string:
-                report_date = datetime.fromisoformat(date_string.replace('Z', '+00:00'))
-            else:
-                report_date = datetime.now()
+                injury_type = 'Unknown'
             
             return InjuryDTO(
                 team_external_id=team_abbr,
@@ -140,10 +163,10 @@ class ESPNInjuryAdapter:
                 player_position=position,
                 player_number=int(jersey) if jersey else None,
                 injury_status=status,
-                injury_type=injury_description,
-                season=datetime.now().year,  # Current season
+                injury_type=injury_type,
+                season=datetime.now().year,
                 week=self._get_current_nfl_week(),
-                report_date=report_date
+                report_date=datetime.now()
             )
             
         except Exception as e:
